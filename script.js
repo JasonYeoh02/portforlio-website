@@ -177,6 +177,65 @@
     }), { rootMargin: '-35% 0px -55%', threshold: 0 });
     document.querySelectorAll('[data-section]').forEach(section => sectionObserver.observe(section));
 
+
+    // Custom music preview controls. One shared player prevents songs from overlapping.
+    const songButtons = [...document.querySelectorAll('.song-play')];
+    const musicPlayer = new Audio();
+    musicPlayer.volume = 0.1;
+    let activeSongButton = null;
+
+    const formatSongTime = seconds => {
+      if (!Number.isFinite(seconds)) return '0:00';
+      const minutes = Math.floor(seconds / 60);
+      const remaining = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return `${minutes}:${remaining}`;
+    };
+
+    const resetSongButton = button => {
+      if (!button) return;
+      button.classList.remove('is-playing');
+      button.querySelector('.song-icon').textContent = 'Play';
+    };
+
+    songButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const source = button.dataset.src;
+        if (!source) return;
+
+        if (activeSongButton === button && !musicPlayer.paused) {
+          musicPlayer.pause();
+          resetSongButton(button);
+          return;
+        }
+
+        resetSongButton(activeSongButton);
+        activeSongButton = button;
+
+        if (musicPlayer.src !== new URL(source, location.href).href) {
+          musicPlayer.src = source;
+        }
+
+        button.classList.add('is-playing');
+        button.querySelector('.song-icon').textContent = 'Pause';
+        musicPlayer.play().catch(() => resetSongButton(button));
+      });
+    });
+
+    musicPlayer.addEventListener('timeupdate', () => {
+      if (!activeSongButton) return;
+      const progress = musicPlayer.duration ? (musicPlayer.currentTime / musicPlayer.duration) * 100 : 0;
+      activeSongButton.querySelector('.song-progress span').style.width = `${progress}%`;
+      activeSongButton.querySelector('.song-time').textContent = formatSongTime(musicPlayer.currentTime);
+    });
+
+    musicPlayer.addEventListener('ended', () => {
+      if (!activeSongButton) return;
+      activeSongButton.querySelector('.song-progress span').style.width = '0%';
+      activeSongButton.querySelector('.song-time').textContent = '0:00';
+      resetSongButton(activeSongButton);
+      activeSongButton = null;
+    });
+
     // FYP screenshot modal
     const fypModal = document.getElementById('fyp-modal');
     const fypOpen = document.querySelector('.fyp-open');
